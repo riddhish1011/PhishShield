@@ -1,0 +1,629 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PhishShield | URL Security</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%9B%A1%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --g: #00ff88; --g2: #00d4aa; --g-dim: #0c3a28;
+  --panel: rgba(8, 20, 14, 0.80);
+  --txt: #d7ffe9; --muted: #7fb99d;
+  --amber: #fbbf24; --red: #ff4d6d;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  color: var(--txt);
+  background:
+    linear-gradient(rgba(0,255,136,0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,255,136,0.035) 1px, transparent 1px),
+    radial-gradient(circle at 12% 0%, #0b2a1b 0%, #050b08 42%, #030504 100%);
+  background-size: 38px 38px, 38px 38px, 100% 100%;
+  background-attachment: fixed;
+}
+h1, h2, h3, h4 {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--g);
+  letter-spacing: -0.5px;
+  text-shadow: 0 0 14px rgba(0,255,136,0.35);
+  margin: 0 0 10px;
+}
+a { color: var(--g); }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #030705; }
+::-webkit-scrollbar-thumb { background: var(--g-dim); border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: var(--g); }
+
+/* ---------- background (3D) ---------- */
+.bg-layer { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.rain-col {
+  position: absolute; top: 0; font-family: 'JetBrains Mono', monospace;
+  line-height: 1.25; color: var(--g); transform: translateY(-110%);
+  animation: rain linear infinite;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 100%);
+}
+.rain-col.d1 { font-size: 10px; opacity: .14; }
+.rain-col.d2 { font-size: 14px; opacity: .24; text-shadow: 0 0 8px rgba(0,255,136,.7); }
+.rain-col.d3 { font-size: 20px; opacity: .38; text-shadow: 0 0 12px rgba(0,255,136,.95); }
+@keyframes rain { from { transform: translateY(-110%); } to { transform: translateY(110vh); } }
+
+.grid-floor {
+  position: absolute; left: -20%; right: -20%; bottom: 0; height: 46vh;
+  background-image:
+    linear-gradient(rgba(0,255,136,.55) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,255,136,.55) 1px, transparent 1px);
+  background-size: 64px 64px;
+  transform: perspective(380px) rotateX(64deg);
+  transform-origin: 50% 100%;
+  opacity: .55;
+  animation: floor 2.4s linear infinite;
+  -webkit-mask-image: linear-gradient(to top, #000 0%, transparent 90%);
+  mask-image: linear-gradient(to top, #000 0%, transparent 90%);
+}
+@keyframes floor { from { background-position: 0 0, 0 0; } to { background-position: 0 64px, 0 0; } }
+
+.cube-scene { position: absolute; width: 120px; height: 120px; perspective: 700px; }
+.cube { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; animation: cubespin 22s linear infinite; }
+.cube .face {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font: 700 14px 'JetBrains Mono', monospace; letter-spacing: 1px; color: var(--g);
+  text-shadow: 0 0 10px rgba(0,255,136,.9);
+  border: 1px solid rgba(0,255,136,.75); background: rgba(0,255,136,.06);
+  box-shadow: inset 0 0 22px rgba(0,255,136,.30), 0 0 14px rgba(0,255,136,.25);
+}
+.cube .f1 { transform: rotateY(0deg)   translateZ(var(--h)); }
+.cube .f2 { transform: rotateY(90deg)  translateZ(var(--h)); }
+.cube .f3 { transform: rotateY(180deg) translateZ(var(--h)); }
+.cube .f4 { transform: rotateY(-90deg) translateZ(var(--h)); }
+.cube .f5 { transform: rotateX(90deg)  translateZ(var(--h)); }
+.cube .f6 { transform: rotateX(-90deg) translateZ(var(--h)); }
+.cube-scene { --h: 60px; }
+.bg-cube { right: 460px; bottom: 120px; }
+.hero-cube { --h: 45px; width: 90px; height: 90px; perspective: 520px; right: 70px; top: 50%; margin-top: -45px; z-index: 2; }
+.hero-cube .face { font-size: 12px; }
+@keyframes cubespin { from { transform: rotateX(-25deg) rotateY(0deg); } to { transform: rotateX(335deg) rotateY(360deg); } }
+
+.term-log {
+  position: absolute; right: 22px; bottom: 18px; width: 380px; padding: 12px 14px;
+  font: 12px/1.65 'JetBrains Mono', monospace; color: var(--g);
+  background: rgba(3,10,6,.62); border: 1px solid rgba(0,255,136,.30);
+  border-radius: 10px; box-shadow: 0 0 20px rgba(0,255,136,.15);
+}
+.term-head { color: var(--muted); margin-bottom: 6px; letter-spacing: 1px; }
+.term-line { width: 0; overflow: hidden; white-space: nowrap; animation: termtype 30s steps(36, end) infinite; }
+@keyframes termtype {
+  0% { width: 0; opacity: 1; } 4% { width: calc(var(--n) * 1ch); opacity: 1; }
+  90% { width: calc(var(--n) * 1ch); opacity: 1; } 96% { width: calc(var(--n) * 1ch); opacity: 0; }
+  97% { width: 0; opacity: 0; } 100% { width: 0; opacity: 0; }
+}
+.term-cursor::after { content: "█"; animation: blink 1s steps(2) infinite; }
+@keyframes blink { 50% { opacity: .25; } }
+
+/* ---------- layout ---------- */
+.app { position: relative; z-index: 1; display: flex; min-height: 100vh; }
+.sidebar {
+  width: 280px; flex: 0 0 280px; padding: 26px 22px; position: sticky; top: 0; height: 100vh;
+  background: linear-gradient(180deg, #06110b 0%, #030705 100%);
+  border-right: 1px solid var(--g-dim); box-shadow: 4px 0 30px rgba(0,255,136,.06);
+}
+.brand { font: 800 22px 'JetBrains Mono', monospace; color: var(--g); text-shadow: 0 0 14px rgba(0,255,136,.45); }
+.brand-sub { color: var(--muted); font-size: 13px; margin: 4px 0 18px; }
+.sep { border: 0; border-top: 1px solid var(--g-dim); margin: 16px 0; }
+.nav button {
+  display: block; width: 100%; text-align: left; margin-bottom: 6px; padding: 10px 12px;
+  background: transparent; color: #c9f7df; cursor: pointer;
+  border: 1px solid transparent; border-radius: 9px;
+  font: 600 14px 'JetBrains Mono', monospace; transition: all .18s ease;
+}
+.nav button:hover { border-color: var(--g-dim); background: rgba(0,255,136,.07); transform: translateX(3px); }
+.nav button.active { border-color: var(--g); background: rgba(0,255,136,.12); color: var(--g); box-shadow: 0 0 14px rgba(0,255,136,.25); }
+.status h4 { font-size: 15px; }
+.status p { margin: 8px 0; font-size: 14px; color: #c9f7df; }
+.status small { color: var(--muted); }
+
+.main { flex: 1; min-width: 0; padding: 28px 40px 60px; }
+.wrap { max-width: 1200px; margin: 0 auto; }
+
+.hero {
+  position: relative; overflow: hidden; padding: 28px 30px; border-radius: 18px;
+  border: 1px solid var(--g);
+  background: linear-gradient(120deg, rgba(6,26,16,.78) 0%, rgba(8,20,13,.78) 55%, rgba(10,31,20,.78) 100%);
+  box-shadow: 0 0 28px rgba(0,255,136,.22), inset 0 0 40px rgba(0,255,136,.05);
+  margin-bottom: 22px;
+}
+.hero::after {
+  content: ""; position: absolute; left: 0; right: 0; top: -100%; height: 60%;
+  background: linear-gradient(180deg, transparent, rgba(0,255,136,.10), transparent);
+  animation: scan 4.5s linear infinite; pointer-events: none;
+}
+@keyframes scan { to { top: 140%; } }
+.hero-badge {
+  display: inline-block; font: 12px 'JetBrains Mono', monospace; color: var(--g);
+  border: 1px solid var(--g-dim); background: rgba(0,255,136,.08);
+  padding: 4px 10px; border-radius: 999px; margin-bottom: 12px; letter-spacing: 1px;
+}
+.hero-badge::before {
+  content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 50%;
+  background: var(--g); box-shadow: 0 0 10px var(--g); animation: blink 1.4s ease-in-out infinite;
+}
+.hero-title { font: 800 38px 'JetBrains Mono', monospace; letter-spacing: -1px; color: var(--g); text-shadow: 0 0 18px rgba(0,255,136,.55); }
+.hero-subtitle { color: var(--muted); font-size: 15px; margin-top: 8px; }
+
+.panel { background: var(--panel); border: 1px solid var(--g-dim); border-radius: 16px; padding: 20px; margin-bottom: 18px; }
+.form-panel { background: rgba(6,16,11,.7); }
+label.lbl { display: block; margin-bottom: 8px; font-size: 14px; }
+
+input[type="text"] {
+  width: 100%; padding: 13px 14px; border-radius: 10px;
+  border: 1px solid var(--g-dim); background: #d9ffea;
+  color: #000 !important; -webkit-text-fill-color: #000; caret-color: #000;
+  font: 600 15px 'JetBrains Mono', monospace; outline: none; transition: all .2s ease;
+}
+input[type="text"]::placeholder { color: #4d7a64; -webkit-text-fill-color: #4d7a64; opacity: 1; }
+input[type="text"]:focus { border-color: var(--g); box-shadow: 0 0 16px rgba(0,255,136,.35); }
+.hint { color: var(--muted); font-size: 12px; margin-top: 8px; }
+
+.btn {
+  font: 700 14px 'JetBrains Mono', monospace; letter-spacing: 1px; text-transform: uppercase;
+  min-height: 46px; padding: 0 20px; border-radius: 12px; cursor: pointer;
+  border: 1px solid var(--g); background: rgba(0,255,136,.07); color: var(--g); transition: all .2s ease;
+}
+.btn:hover { background: var(--g); color: #03110a; box-shadow: 0 0 24px rgba(0,255,136,.6); transform: translateY(-2px); }
+.btn:active { transform: translateY(0) scale(.98); }
+.btn[disabled] { opacity: .6; cursor: wait; transform: none; }
+.btn.primary {
+  width: 100%; margin-top: 14px; border: none; color: #03110a; font-weight: 800;
+  background: linear-gradient(90deg, #00ff88, #00d4aa); box-shadow: 0 0 20px rgba(0,255,136,.4);
+}
+.btn.primary:hover { background: linear-gradient(90deg, #4dffaa, #00ffd0); box-shadow: 0 0 34px rgba(0,255,136,.8); }
+
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 16px; }
+.grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 18px; }
+.card {
+  background: var(--panel); border: 1px solid var(--g-dim); border-left: 3px solid var(--g);
+  border-radius: 14px; padding: 17px; min-height: 100px; transition: all .2s ease;
+}
+.card:hover { border-color: var(--g); box-shadow: 0 0 20px rgba(0,255,136,.2); transform: translateY(-2px); }
+.card .label { color: var(--muted); font: 12px 'JetBrains Mono', monospace; text-transform: uppercase; letter-spacing: 1px; }
+.card .value { color: var(--g); font: 800 30px 'JetBrains Mono', monospace; margin-top: 6px; text-shadow: 0 0 12px rgba(0,255,136,.5); }
+.card .value.small { font-size: 17px; margin-top: 10px; color: #e4edff; text-shadow: none; font-weight: 700; }
+.card .sub { color: var(--muted); font-size: 12px; margin-top: 4px; }
+.urlbox { font-family: 'JetBrains Mono', monospace; overflow-wrap: anywhere; font-weight: 600; }
+
+.notice { border-radius: 12px; padding: 12px 16px; margin: 10px 0; font-size: 14px; border: 1px solid; }
+.notice.ok { background: rgba(0,255,136,.10); border-color: rgba(0,255,136,.4); }
+.notice.info { background: rgba(80,160,255,.10); border-color: rgba(80,160,255,.4); }
+.notice.warn { background: rgba(251,191,36,.10); border-color: rgba(251,191,36,.4); }
+.notice.bad { background: rgba(255,77,109,.12); border-color: rgba(255,77,109,.5); }
+
+ul.reasons { margin: 8px 0 0; padding-left: 22px; line-height: 1.7; }
+details { border: 1px solid var(--g-dim); border-radius: 12px; background: rgba(6,16,11,.6); padding: 10px 14px; margin: 14px 0; }
+summary { cursor: pointer; font-weight: 600; }
+summary:hover { color: var(--g); }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--g-dim); overflow-wrap: anywhere; }
+th { color: var(--g); font-family: 'JetBrains Mono', monospace; font-weight: 700; }
+.tablewrap { overflow-x: auto; border: 1px solid var(--g-dim); border-radius: 12px; }
+.caption { color: var(--muted); font-size: 12px; margin-top: 8px; }
+
+.guide .card { min-height: 0; border-left-width: 3px; }
+.guide .low { border-left-color: var(--g); } .guide .med { border-left-color: var(--amber); } .guide .high { border-left-color: var(--red); }
+
+.bars { display: flex; align-items: flex-end; gap: 28px; height: 160px; padding: 10px 6px 0; }
+.bar { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; }
+.bar i { display: block; width: 100%; max-width: 90px; border-radius: 8px 8px 0 0; min-height: 3px; transition: height .4s ease; }
+.bar span { margin-top: 6px; font: 12px 'JetBrains Mono', monospace; color: var(--muted); }
+.bar b { font: 700 13px 'JetBrains Mono', monospace; margin-bottom: 4px; }
+
+.page { display: none; } .page.active { display: block; }
+.row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 14px; }
+.foot { color: var(--muted); font-size: 12px; margin-top: 30px; border-top: 1px solid var(--g-dim); padding-top: 14px; }
+
+@media (max-width: 1100px) { .term-log, .bg-cube, .hero-cube { display: none; } }
+@media (max-width: 860px) {
+  .app { flex-direction: column; }
+  .sidebar { position: static; width: 100%; height: auto; flex: none; border-right: 0; border-bottom: 1px solid var(--g-dim); }
+  .nav { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .nav button { margin: 0; }
+  .main { padding: 20px 16px 50px; }
+  .grid3, .grid4 { grid-template-columns: 1fr; }
+  .hero-title { font-size: 28px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rain-col, .grid-floor, .cube, .term-line, .term-cursor::after, .hero::after { animation: none; }
+  .term-line { width: auto; }
+}
+</style>
+</head>
+<body>
+<div class="bg-layer" id="bg" aria-hidden="true"></div>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">🛡️ PhishShield</div>
+    <div class="brand-sub">Hybrid phishing URL analyzer</div>
+    <hr class="sep">
+    <nav class="nav" id="nav">
+      <button data-page="scanner" class="active">URL Scanner</button>
+      <button data-page="dashboard">Security Dashboard</button>
+      <button data-page="about">About Project</button>
+    </nav>
+    <hr class="sep">
+    <div class="status">
+      <h4>System status</h4>
+      <p id="st-google">🟡 Checking Google API...</p>
+      <p>🟢 Heuristic engine online</p>
+      <small>A missing optional service does not stop heuristic scanning.</small>
+    </div>
+  </aside>
+
+  <main class="main"><div class="wrap">
+    <div class="hero">
+      <div class="cube-scene hero-cube" id="hero-cube"></div>
+      <div class="hero-badge">SYSTEM ONLINE · 3D CYBER BUILD v3</div>
+      <div class="hero-title">🛡️ PhishShield</div>
+      <div class="hero-subtitle">Hybrid phishing detection · Explainable risk analysis · Threat intelligence</div>
+    </div>
+
+    <!-- ===== Scanner ===== -->
+    <section class="page active" id="page-scanner">
+      <h3>🔎 Analyze a URL</h3>
+      <p>Enter a URL to inspect its characteristics and check known threats.</p>
+      <form class="panel form-panel" id="scan-form" autocomplete="off">
+        <label class="lbl" for="url">URL to scan</label>
+        <input type="text" id="url" name="url" placeholder="https://example.com/login" spellcheck="false" autocapitalize="off" maxlength="4096">
+        <div class="hint">Only the URL string is analyzed. The app does not open the website.</div>
+        <button class="btn primary" id="scan-btn" type="submit">🛡️ Scan URL</button>
+      </form>
+      <div id="error"></div>
+      <div id="result"></div>
+
+      <hr class="sep">
+      <h3>Risk guide</h3>
+      <div class="grid3 guide">
+        <div class="card low"><b>Low: 0–3</b><div class="sub">Few heuristic indicators</div></div>
+        <div class="card med"><b>Medium: 4–6</b><div class="sub">Review the warning evidence</div></div>
+        <div class="card high"><b>High: 7–10</b><div class="sub">Elevated risk; avoid interacting until verified</div></div>
+      </div>
+    </section>
+
+    <!-- ===== Dashboard ===== -->
+    <section class="page" id="page-dashboard">
+      <h3>📊 Security Dashboard</h3>
+      <div id="dash"></div>
+    </section>
+
+    <!-- ===== About ===== -->
+    <section class="page" id="page-about">
+      <h3>About PhishShield</h3>
+      <div class="panel">
+        <p><b>PhishShield</b> is a phishing URL analysis project with a static web front end and a Python serverless API, deployed on Vercel.</p>
+        <h4>Core components</h4>
+        <ul class="reasons">
+          <li>Explainable, rule-based URL risk analysis (19 URL features)</li>
+          <li>Trusted-host allowlist (including the app's own host)</li>
+          <li>Google Safe Browsing threat-list lookups (optional API key)</li>
+          <li>Scan history and risk-distribution dashboard (stored in your browser)</li>
+        </ul>
+        <h4 style="margin-top:18px">Limitations</h4>
+        <ul class="reasons">
+          <li>URL patterns can create false positives and false negatives.</li>
+          <li>Threat intelligence may not know about a newly created phishing URL.</li>
+          <li>An API timeout is not evidence that a URL is safe.</li>
+          <li>HTTPS encrypts a connection but does not prove a site is trustworthy.</li>
+          <li>Trusted hosts skip URL-shape warnings, but a Safe Browsing known-threat match still overrides trust.</li>
+        </ul>
+        <p><b>PhishShield is a decision-support tool, not a guarantee of safety.</b></p>
+        <p>References:
+          <a href="https://developers.google.com/safe-browsing/reference/rest" target="_blank" rel="noopener">Google Safe Browsing API</a></p>
+      </div>
+    </section>
+
+    <div class="foot">PhishShield • Educational cybersecurity project • Always verify suspicious links through trusted channels.</div>
+  </div></main>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (s) { return document.querySelector(s); };
+
+  /* ---------- helpers ---------- */
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function store(key, val) {
+    try {
+      if (val === undefined) return JSON.parse(localStorage.getItem(key) || "null");
+      localStorage.setItem(key, JSON.stringify(val));
+    } catch (e) { return null; }
+  }
+  var COLORS = { Low: "#00ff88", Medium: "#fbbf24", High: "#ff4d6d" };
+  var RANGES = { Low: "0–3", Medium: "4–6", High: "7–10" };
+
+  /* ---------- decorative 3D background ---------- */
+  (function buildBackground() {
+    var bg = $("#bg");
+    var charset = "0123456789ABCDEF/+=;:%@";
+    var depths = [["d1", 22, 36], ["d2", 14, 24], ["d3", 9, 16]];
+    var n = 33;
+    for (var i = 0; i < n; i++) {
+      var d = depths[i % 3];
+      var col = el("div", "rain-col " + d[0]);
+      var len = 24 + Math.floor(Math.random() * 21);
+      var chars = [];
+      for (var k = 0; k < len; k++) chars.push(charset.charAt(Math.floor(Math.random() * charset.length)));
+      col.textContent = chars.join("\n");
+      col.style.whiteSpace = "pre";
+      var dur = d[1] + Math.floor(Math.random() * (d[2] - d[1] + 1));
+      col.style.left = ((i + Math.random() * 0.8) * (100 / n)).toFixed(2) + "%";
+      col.style.animationDuration = dur + "s";
+      col.style.animationDelay = "-" + Math.floor(Math.random() * dur) + "s";
+      bg.appendChild(col);
+    }
+    bg.appendChild(el("div", "grid-floor"));
+
+    function cube(words, cls) {
+      var scene = el("div", "cube-scene " + cls);
+      var c = el("div", "cube");
+      words.forEach(function (w, i) { c.appendChild(el("div", "face f" + (i + 1), w)); });
+      scene.appendChild(c);
+      return scene;
+    }
+    bg.appendChild(cube(["ROOT", "SSH", "AES256", "FIREWALL", "NMAP", "0xFF"], "bg-cube"));
+
+    var hc = $("#hero-cube");
+    var inner = el("div", "cube");
+    ["ROOT", "SSH", "AES", "NMAP", "0xFF", "FW"].forEach(function (w, i) {
+      inner.appendChild(el("div", "face f" + (i + 1), w));
+    });
+    hc.appendChild(inner);
+
+    var term = el("div", "term-log");
+    term.appendChild(el("div", "term-head", "root@phishshield:~# tail -f threat.log"));
+    [
+      "$ whoami", "root", "$ ./phishshield --init",
+      "[+] feature extractor loaded", "[+] heuristics engine: 19 rules",
+      "[i] checking punycode / homograph", "[!] tld watchlist rules active",
+      "[+] safe browsing module: standby", "[+] risk scoring: ready",
+      "$ monitor --realtime", "[i] listening for urls...", "[+] 0 threats detected"
+    ].forEach(function (line, i) {
+      var l = el("div", "term-line", line);
+      l.style.setProperty("--n", line.length);
+      l.style.animationDelay = (i * 2.2).toFixed(1) + "s";
+      term.appendChild(l);
+    });
+    term.appendChild(el("div", "term-cursor"));
+    bg.appendChild(term);
+  })();
+
+  /* ---------- navigation ---------- */
+  function showPage(name) {
+    document.querySelectorAll(".page").forEach(function (p) { p.classList.remove("active"); });
+    document.querySelectorAll("#nav button").forEach(function (b) {
+      b.classList.toggle("active", b.getAttribute("data-page") === name);
+    });
+    $("#page-" + name).classList.add("active");
+    if (name === "dashboard") renderDashboard();
+  }
+  $("#nav").addEventListener("click", function (e) {
+    var b = e.target.closest("button");
+    if (b) showPage(b.getAttribute("data-page"));
+  });
+
+  /* ---------- system status ---------- */
+  fetch("/api/scan").then(function (r) { return r.json(); }).then(function (j) {
+    $("#st-google").textContent = j.google_configured ? "🟢 Google API key configured" : "🟡 Google API not configured";
+  }).catch(function () {
+    $("#st-google").textContent = "🟡 API status unavailable";
+  });
+
+  /* ---------- history ---------- */
+  var history = store("phishshield_history") || [];
+  function saveHistory() { store("phishshield_history", history.slice(0, 100)); }
+
+  /* ---------- scan ---------- */
+  var lastScan = null;
+
+  $("#scan-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var url = $("#url").value;
+    var btn = $("#scan-btn");
+    $("#error").textContent = "";
+    btn.disabled = true;
+    btn.textContent = "Analyzing...";
+
+    fetch("/api/scan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: url })
+    })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, body: j }; }); })
+      .then(function (res) {
+        if (!res.ok) throw new Error(res.body.error || "Scan could not be completed.");
+        var scan = res.body;
+        scan.timestamp = new Date().toLocaleString();
+        lastScan = scan;
+        history.unshift(scan);
+        history = history.slice(0, 100);
+        saveHistory();
+        renderResult(scan);
+      })
+      .catch(function (err) {
+        $("#result").textContent = "";
+        var n = el("div", "notice bad", err.message || "Scan could not be completed.");
+        $("#error").appendChild(n);
+      })
+      .then(function () {
+        btn.disabled = false;
+        btn.textContent = "🛡️ Scan URL";
+      });
+  });
+
+  function card(label, value, sub, color, small) {
+    var c = el("div", "card");
+    c.appendChild(el("div", "label", label));
+    var v = el("div", "value" + (small ? " small" : ""), value);
+    if (color) { v.style.color = color; v.style.textShadow = "none"; }
+    c.appendChild(v);
+    if (sub) c.appendChild(el("div", "sub", sub));
+    return c;
+  }
+
+  function renderResult(scan) {
+    var out = $("#result");
+    out.textContent = "";
+    out.appendChild(el("hr", "sep"));
+    out.appendChild(el("h3", null, "Scan result"));
+
+    if (scan.trusted) {
+      out.appendChild(el("div", "notice ok", "✅ Trusted host — URL-shape warnings were not applied."));
+    }
+
+    var g3 = el("div", "grid3");
+    g3.appendChild(card("Risk score", scan.score + "/10", "Heuristic + available evidence"));
+    g3.appendChild(card("Risk level", scan.level, RANGES[scan.level] + " risk range", COLORS[scan.level]));
+    g3.appendChild(card("Detection outcome", scan.verdict, "", null, true));
+    out.appendChild(g3);
+
+    var urlPanel = el("div", "panel");
+    urlPanel.appendChild(el("div", "caption", "Scanned URL"));
+    urlPanel.appendChild(el("div", "urlbox", scan.url));
+    out.appendChild(urlPanel);
+
+    out.appendChild(el("h4", null, "Evidence and warnings"));
+    var ul = el("ul", "reasons");
+    scan.reasons.forEach(function (r) { ul.appendChild(el("li", null, r)); });
+    out.appendChild(ul);
+
+    out.appendChild(el("h4", null, "Threat intelligence")).style.marginTop = "18px";
+    var gs = scan.google.status;
+    var cls = gs === "Known threat" ? "bad" : gs === "No known threat found" ? "ok" : gs === "Not configured" ? "info" : "warn";
+    out.appendChild(el("div", "notice " + cls, scan.google.message));
+    if (scan.google.threat_types && scan.google.threat_types.length) {
+      out.appendChild(el("p", null, "Threat types: " + scan.google.threat_types.join(", ")));
+    }
+
+    var det = el("details");
+    det.appendChild(el("summary", null, "Technical feature details"));
+    var tw = el("div", "tablewrap");
+    var t = el("table");
+    var head = el("tr");
+    head.appendChild(el("th", null, "Feature")); head.appendChild(el("th", null, "Value"));
+    t.appendChild(head);
+    Object.keys(scan.features).forEach(function (k) {
+      var tr = el("tr");
+      tr.appendChild(el("td", null, k)); tr.appendChild(el("td", null, String(scan.features[k])));
+      t.appendChild(tr);
+    });
+    tw.appendChild(t); det.appendChild(tw);
+    out.appendChild(det);
+
+    out.appendChild(el("div", "caption",
+      "Important: heuristic risk scores are not probabilities. A low score or no threat-list match cannot guarantee safety."));
+  }
+
+  /* ---------- dashboard ---------- */
+  function renderDashboard() {
+    var root = $("#dash");
+    root.textContent = "";
+
+    if (!history.length) {
+      root.appendChild(el("div", "notice info", "No scans yet. Go to URL Scanner and analyze a URL first."));
+      return;
+    }
+
+    var counts = { Low: 0, Medium: 0, High: 0 }, known = 0;
+    history.forEach(function (h) {
+      counts[h.level] = (counts[h.level] || 0) + 1;
+      if (h.google && h.google.status === "Known threat") known++;
+    });
+
+    var g4 = el("div", "grid4");
+    g4.appendChild(card("Total scans", String(history.length)));
+    g4.appendChild(card("High risk", String(counts.High)));
+    g4.appendChild(card("Medium risk", String(counts.Medium)));
+    g4.appendChild(card("Known threat matches", String(known)));
+    root.appendChild(g4);
+
+    root.appendChild(el("h4", null, "Risk distribution"));
+    var panel = el("div", "panel");
+    var bars = el("div", "bars");
+    var max = Math.max(counts.Low, counts.Medium, counts.High, 1);
+    ["Low", "Medium", "High"].forEach(function (lvl) {
+      var b = el("div", "bar");
+      b.appendChild(el("b", null, String(counts[lvl]))).style.color = COLORS[lvl];
+      var i = el("i");
+      i.style.background = COLORS[lvl];
+      i.style.boxShadow = "0 0 14px " + COLORS[lvl] + "88";
+      i.style.height = Math.round((counts[lvl] / max) * 100) + "%";
+      b.appendChild(i);
+      b.appendChild(el("span", null, lvl));
+      bars.appendChild(b);
+    });
+    panel.appendChild(bars);
+    root.appendChild(panel);
+
+    root.appendChild(el("h4", null, "Recent scans"));
+    var tw = el("div", "tablewrap");
+    var t = el("table");
+    var hr = el("tr");
+    ["Time", "URL", "Score", "Risk", "Verdict", "Google check"].forEach(function (h) { hr.appendChild(el("th", null, h)); });
+    t.appendChild(hr);
+    history.forEach(function (h) {
+      var tr = el("tr");
+      [h.timestamp, h.url, h.score + "/10", h.level, h.verdict, h.google ? h.google.status : ""].forEach(function (v) {
+        tr.appendChild(el("td", null, v));
+      });
+      t.appendChild(tr);
+    });
+    tw.appendChild(t);
+    root.appendChild(tw);
+
+    var row = el("div", "row");
+    var dl = el("button", "btn", "Download scan history (CSV)");
+    dl.type = "button";
+    dl.addEventListener("click", downloadCsv);
+    var clr = el("button", "btn", "Clear scan history");
+    clr.type = "button";
+    clr.addEventListener("click", function () {
+      history = []; lastScan = null; saveHistory(); renderDashboard();
+    });
+    row.appendChild(dl); row.appendChild(clr);
+    root.appendChild(row);
+  }
+
+  function csvCell(v) {
+    var s = String(v == null ? "" : v);
+    // neutralise spreadsheet formula injection
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  function downloadCsv() {
+    var rows = [["Time", "URL", "Score", "Risk", "Verdict", "Google check"]];
+    history.forEach(function (h) {
+      rows.push([h.timestamp, h.url, h.score + "/10", h.level, h.verdict, h.google ? h.google.status : ""]);
+    });
+    var csv = rows.map(function (r) { return r.map(csvCell).join(","); }).join("\r\n");
+    var blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "phishshield_scan_history.csv";
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  }
+})();
+</script>
+</body>
+</html>
